@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Metal Petal - Interactive Neon Waves GLSL | Chris Pirillo</title>
+    
+    <meta name="description" content="Metal Petal is an immersive, interactive WebGL generative art application. Create mesmerizing neon waves and metallic floral structures using real-time GLSL physics.">
+    <meta name="keywords" content="Metal Petal, WebGL, GLSL, Neon Waves, Generative Art, Shader, Interactive Visualizer, Arcade, HTML5 Canvas, Digital Art">
+    <meta name="author" content="Chris Pirillo">
+    <link rel="canonical" href="https://pirillo.com/arcade/metal-petal.html">
+
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://pirillo.com/arcade/metal-petal.html">
+    <meta property="og:title" content="Metal Petal - Interactive Neon Waves GLSL">
+    <meta property="og:description" content="Generate mesmerizing neon waves and metallic petal structures in this interactive WebGL experience by Chris Pirillo.">
+    <meta property="og:image" content="https://pirillo.com/arcade/images/metal-petal.png">
+    <meta property="og:site_name" content="Chris Pirillo">
+
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://pirillo.com/arcade/metal-petal.html">
+    <meta name="twitter:title" content="Metal Petal - Interactive Neon Waves GLSL">
+    <meta name="twitter:description" content="Generate mesmerizing neon waves and metallic petal structures in this interactive WebGL experience by Chris Pirillo.">
+    <meta name="twitter:image" content="https://pirillo.com/arcade/images/metal-petal.png">
+    <meta name="twitter:creator" content="@ChrisPirillo">
+
+    <link rel="preconnect" href="https://www.googletagmanager.com">
+
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Metal Petal",
+      "url": "https://pirillo.com/arcade/metal-petal.html",
+      "description": "An interactive WebGL generative art application featuring neon waves and metallic petal structures.",
+      "image": "https://pirillo.com/arcade/images/metal-petal.png",
+      "author": {
+        "@type": "Person",
+        "name": "Chris Pirillo",
+        "url": "https://pirillo.com"
+      },
+      "applicationCategory": "MultimediaApplication",
+      "operatingSystem": "Any"
+    }
+    </script>
+
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1CQ4D3VQ3L"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-1CQ4D3VQ3L');
+    </script>
+
+    <style>
+        :root {
+            --bg-panel: rgba(15, 15, 20, 0.85);
+            --text-main: #eee;
+            --accent: #00ffcc;
+            --accent-dim: #008866;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Semantic canvas styling */
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+        }
+
+        /* Fade Overlay */
+        #fade-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: black;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+            z-index: 50;
+        }
+
+        /* Hamburger Button */
+        #menu-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 30px; 
+            height: 30px; 
+            z-index: 100;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 5px; 
+            mix-blend-mode: difference;
+        }
+
+        #menu-btn div {
+            width: 100%;
+            height: 2px;
+            background: white;
+            border-radius: 2px;
+            transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transform-origin: center;
+        }
+
+        /* X transformation */
+        #menu-btn.open div:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+        #menu-btn.open div:nth-child(2) { opacity: 0; transform: scaleX(0); }
+        #menu-btn.open div:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+        /* Settings Panel - Semantically treated as aside in HTML */
+        #settings-panel {
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 340px;
+            height: 100%;
+            background: var(--bg-panel);
+            backdrop-filter: blur(15px);
+            transform: translateX(100%);
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            z-index: 90;
+            display: flex;
+            flex-direction: column;
+            border-left: 1px solid rgba(255,255,255,0.1);
+            box-shadow: -10px 0 30px rgba(0,0,0,0.5);
+        }
+
+        #settings-panel.open {
+            transform: translateX(0);
+        }
+
+        .panel-header {
+            padding: 25px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            color: var(--text-main);
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            text-transform: uppercase;
+        }
+
+        .panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 25px;
+        }
+
+        /* Custom Scrollbar */
+        .panel-content::-webkit-scrollbar { width: 4px; }
+        .panel-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-label {
+            display: flex;
+            justify-content: space-between;
+            color: #ccc;
+            font-size: 0.8rem;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        .control-value {
+            color: var(--accent);
+            font-family: 'Consolas', monospace;
+            font-size: 0.8rem;
+        }
+
+        /* Checkbox Style */
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        .checkbox-label {
+            color: #ccc;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        input[type="checkbox"] {
+            accent-color: var(--accent);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        /* Range Sliders */
+        input[type="range"] {
+            width: 100%;
+            -webkit-appearance: none;
+            background: rgba(255,255,255,0.1);
+            height: 2px;
+            border-radius: 2px;
+            outline: none;
+            transition: background 0.2s;
+        }
+        
+        input[type="range"]:hover {
+            background: rgba(255,255,255,0.2);
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            background: var(--accent);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.3);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.3);
+            background: #fff;
+        }
+
+        /* Section Dividers */
+        .section-title {
+            color: rgba(255,255,255,0.5);
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding-bottom: 5px;
+        }
+
+        /* Buttons */
+        .action-btn {
+            display: block;
+            width: 100%;
+            padding: 14px;
+            margin-bottom: 12px;
+            border: 1px solid var(--accent);
+            background: rgba(0, 255, 204, 0.05);
+            color: var(--accent);
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 1.5px;
+        }
+
+        .action-btn:hover {
+            background: var(--accent);
+            color: #000;
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.4);
+        }
+        
+        .action-btn.secondary {
+            border-color: rgba(255,255,255,0.3);
+            color: rgba(255,255,255,0.7);
+            background: transparent;
+        }
+        .action-btn.secondary:hover {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border-color: #fff;
+            box-shadow: none;
+        }
+
+        .footer {
+            padding: 20px;
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.4);
+            text-align: center;
+            border-top: 1px solid rgba(255,255,255,0.1);
+            line-height: 1.5;
+        }
+        
+        /* Toast Notification */
+        #toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: rgba(10,10,10,0.95);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            opacity: 0;
+            transition: 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 200;
+            pointer-events: none;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+        }
+        #toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+
+    </style>
+</head>
+<body>
+
+    <canvas id="glcanvas" aria-label="Interactive generative neon waves visualization"></canvas>
+    
+    <div id="fade-overlay"></div>
+
+    <div id="menu-btn" title="Toggle Settings (Esc)" aria-label="Toggle Settings Menu" role="button" tabindex="0">
+        <div></div>
+        <div></div>
+        <div></div>
+    </div>
+
+    <aside id="settings-panel" aria-label="Settings Panel">
+        <header class="panel-header">
+            Neon Waves
+        </header>
+        <section class="panel-content" id="controls-container">
+            <button class="action-btn" id="btn-randomize">Randomize Now</button>
+            <button class="action-btn secondary" id="btn-export">Export 4K Wallpaper</button>
+            
+            <hr style="border:0; border-top:1px solid rgba(255,255,255,0.1); margin: 25px 0;">
+            
+            <div class="section-title">Automation</div>
+            
+            <div class="checkbox-group" id="auto-group">
+                <span class="checkbox-label">Auto-Advance</span>
+                <input type="checkbox" id="chk-auto" aria-label="Enable Auto-Advance">
+            </div>
+
+            <div class="section-title">Visuals</div>
+            </section>
+        <footer class="footer">
+            Tap background to randomize<br>
+            ESC to close menu
+        </footer>
+    </aside>
+    
+    <div id="toast" role="alert">Wallpaper Saved!</div>
+
+    <script>
+        // --- WebGL Setup ---
+        const canvas = document.getElementById('glcanvas');
+        const gl = canvas.getContext('webgl');
+
+        if (!gl) {
+            alert('Unable to initialize WebGL. Your browser or machine may not support it.');
+        }
+
+        // --- Shaders ---
+        const vsSource = `
+            attribute vec4 aVertexPosition;
+            void main() {
+                gl_Position = aVertexPosition;
+            }
+        `;
+
+        const fsSource = `
+            precision highp float;
+            uniform vec2 u_resolution;
+            uniform float u_time;
+            
+            // Configurable Uniforms
+            uniform vec2 u_offset; // New: Positioning
+            uniform float u_iter;
+            uniform float u_angFreq;
+            uniform float u_speedBase;
+            uniform float u_speedInc;
+            uniform float u_waveFreq;
+            uniform float u_amp;
+            uniform float u_thick;
+            uniform float u_radius;
+            uniform float u_spacing;
+            uniform vec3 u_colBase;
+            uniform vec3 u_colInc;
+
+            void main() {
+                vec2 r = u_resolution;
+                // Offset shifts the origin of the coordinate system
+                vec2 p = (gl_FragCoord.xy * 2.0 - r) / r.y - u_offset;
+                
+                float a = atan(p.y, p.x);
+                float l = length(p);
+                vec3 c = vec3(0.0);
+
+                for(float i = 0.0; i < 60.0; i++){
+                    if(i >= u_iter) break;
+                    
+                    // The core math
+                    float m = sin(a * u_angFreq + u_time * (u_speedBase + i * u_speedInc) - l * u_waveFreq) * u_amp;
+                    
+                    float d = abs(l - u_radius - m + i * u_spacing);
+                    
+                    // Inverse distance glow
+                    float intensity = u_thick / max(d, 0.0001); 
+                    
+                    vec3 col = u_colBase + i * u_colInc;
+                    c += col * intensity;
+                }
+                
+                // Slight vignette and tone mapping (adjusted for offset center)
+                // We use length(p) so vignette follows the object
+                c *= 1.0 - length(p) * 0.3;
+                
+                gl_FragColor = vec4(c, 1.0);
+            }
+        `;
+
+        function initShaderProgram(gl, vsSource, fsSource) {
+            const vertexShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
+            const fragmentShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
+            const shaderProgram = gl.createProgram();
+            gl.attachShader(shaderProgram, vertexShader);
+            gl.attachShader(shaderProgram, fragmentShader);
+            gl.linkProgram(shaderProgram);
+            return shaderProgram;
+        }
+
+        function loadShader(gl, type, source) {
+            const shader = gl.createShader(type);
+            gl.shaderSource(shader, source);
+            gl.compileShader(shader);
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                console.error('An error occurred compiling the shaders: ' + gl.getShaderInfoLog(shader));
+                gl.deleteShader(shader);
+                return null;
+            }
+            return shader;
+        }
+
+        const shaderProgram = initShaderProgram(gl, vsSource, fsSource);
+        const programInfo = {
+            program: shaderProgram,
+            attribLocations: {
+                vertexPosition: gl.getAttribLocation(shaderProgram, 'aVertexPosition'),
+            },
+            uniformLocations: {
+                resolution: gl.getUniformLocation(shaderProgram, 'u_resolution'),
+                time: gl.getUniformLocation(shaderProgram, 'u_time'),
+                offset: gl.getUniformLocation(shaderProgram, 'u_offset'),
+                iter: gl.getUniformLocation(shaderProgram, 'u_iter'),
+                angFreq: gl.getUniformLocation(shaderProgram, 'u_angFreq'),
+                speedBase: gl.getUniformLocation(shaderProgram, 'u_speedBase'),
+                speedInc: gl.getUniformLocation(shaderProgram, 'u_speedInc'),
+                waveFreq: gl.getUniformLocation(shaderProgram, 'u_waveFreq'),
+                amp: gl.getUniformLocation(shaderProgram, 'u_amp'),
+                thick: gl.getUniformLocation(shaderProgram, 'u_thick'),
+                radius: gl.getUniformLocation(shaderProgram, 'u_radius'),
+                spacing: gl.getUniformLocation(shaderProgram, 'u_spacing'),
+                colBase: gl.getUniformLocation(shaderProgram, 'u_colBase'),
+                colInc: gl.getUniformLocation(shaderProgram, 'u_colInc'),
+            },
+        };
+
+        // Buffer setup
+        const positionBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+        const positions = [-1.0, 1.0, 1.0, 1.0, -1.0, -1.0, 1.0, -1.0];
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+
+        // --- Configuration & State ---
+        
+        const params = {
+            // Automation
+            autoInterval: { val: 10, min: 2, max: 60, step: 1, name: "Auto Interval (sec)", isAuto: true },
+
+            // Positioning
+            posX: { val: 0.0, min: -1.5, max: 1.5, step: 0.01, name: "Position X" },
+            posY: { val: 0.0, min: -1.5, max: 1.5, step: 0.01, name: "Position Y" },
+
+            // Visuals
+            iter: { val: 20, min: 1, max: 60, step: 1, name: "Layer Count" },
+            angFreq: { val: 10.0, min: 0.0, max: 50.0, step: 1.0, name: "Angular Split" }, 
+            waveFreq: { val: 20.0, min: 1.0, max: 100.0, step: 0.1, name: "Wave Frequency" },
+            speedBase: { val: 2.0, min: -10.0, max: 10.0, step: 0.1, name: "Base Speed" },
+            speedInc: { val: 0.5, min: -2.0, max: 2.0, step: 0.01, name: "Speed Diff/Layer" },
+            amp: { val: 0.05, min: 0.0, max: 0.5, step: 0.001, name: "Wave Amplitude" },
+            thick: { val: 0.0008, min: 0.0001, max: 0.008, step: 0.0001, name: "Glow Thickness" },
+            radius: { val: 0.5, min: 0.0, max: 2.5, step: 0.01, name: "Ring Radius" },
+            spacing: { val: 0.015, min: -0.2, max: 0.2, step: 0.001, name: "Layer Spacing" },
+            // Colors
+            colR: { val: 2.0, min: 0.0, max: 5.0, step: 0.1, name: "Red Base" },
+            colG: { val: 0.0, min: 0.0, max: 5.0, step: 0.1, name: "Green Base" },
+            colB: { val: 1.0, min: 0.0, max: 5.0, step: 0.1, name: "Blue Base" },
+            colRInc: { val: 0.0, min: -1.0, max: 1.0, step: 0.01, name: "Red Shift" },
+            colGInc: { val: 0.1, min: -1.0, max: 1.0, step: 0.01, name: "Green Shift" },
+            colBInc: { val: 0.0, min: -1.0, max: 1.0, step: 0.01, name: "Blue Shift" },
+        };
+
+        let autoAdvanceEnabled = false;
+        let lastAutoTime = Date.now();
+
+        // UI Builder
+        const container = document.getElementById('controls-container');
+        
+        Object.keys(params).forEach(key => {
+            const p = params[key];
+            const group = document.createElement('div');
+            group.className = 'control-group';
+            
+            const label = document.createElement('div');
+            label.className = 'control-label';
+            label.innerHTML = `<span>${p.name}</span><span class="control-value" id="val-${key}">${p.val}</span>`;
+            
+            const slider = document.createElement('input');
+            slider.type = 'range';
+            slider.min = p.min;
+            slider.max = p.max;
+            slider.step = p.step;
+            slider.value = p.val;
+            
+            slider.addEventListener('input', (e) => {
+                p.val = parseFloat(e.target.value);
+                const disp = Number.isInteger(p.step) ? p.val : p.val.toFixed(3);
+                document.getElementById(`val-${key}`).innerText = disp;
+                
+                // Reset auto timer if user manually changes something
+                lastAutoTime = Date.now();
+            });
+            
+            // Store slider reference for updates
+            p.el = slider; 
+            
+            group.appendChild(label);
+            group.appendChild(slider);
+            container.appendChild(group);
+        });
+
+        // Auto Advance Toggle Logic
+        const chkAuto = document.getElementById('chk-auto');
+        chkAuto.addEventListener('change', (e) => {
+            autoAdvanceEnabled = e.target.checked;
+            lastAutoTime = Date.now();
+        });
+
+        // --- Logic ---
+
+        let startTime = Date.now();
+        let animationFrameId;
+
+        function render(forceWidth, forceHeight) {
+            const w = forceWidth || window.innerWidth;
+            const h = forceHeight || window.innerHeight;
+
+            if (canvas.width !== w || canvas.height !== h) {
+                canvas.width = w;
+                canvas.height = h;
+                gl.viewport(0, 0, w, h);
+            }
+
+            gl.clearColor(0.0, 0.0, 0.0, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT);
+
+            gl.useProgram(programInfo.program);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+            gl.vertexAttribPointer(programInfo.attribLocations.vertexPosition, 2, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
+
+            const currentTime = (Date.now() - startTime) * 0.001;
+            
+            gl.uniform2f(programInfo.uniformLocations.resolution, w, h);
+            gl.uniform1f(programInfo.uniformLocations.time, currentTime);
+            gl.uniform2f(programInfo.uniformLocations.offset, params.posX.val, params.posY.val);
+            
+            gl.uniform1f(programInfo.uniformLocations.iter, params.iter.val);
+            gl.uniform1f(programInfo.uniformLocations.angFreq, params.angFreq.val);
+            gl.uniform1f(programInfo.uniformLocations.waveFreq, params.waveFreq.val);
+            gl.uniform1f(programInfo.uniformLocations.speedBase, params.speedBase.val);
+            gl.uniform1f(programInfo.uniformLocations.speedInc, params.speedInc.val);
+            gl.uniform1f(programInfo.uniformLocations.amp, params.amp.val);
+            gl.uniform1f(programInfo.uniformLocations.thick, params.thick.val);
+            gl.uniform1f(programInfo.uniformLocations.radius, params.radius.val);
+            gl.uniform1f(programInfo.uniformLocations.spacing, params.spacing.val);
+            
+            gl.uniform3f(programInfo.uniformLocations.colBase, params.colR.val, params.colG.val, params.colB.val);
+            gl.uniform3f(programInfo.uniformLocations.colInc, params.colRInc.val, params.colGInc.val, params.colBInc.val);
+
+            gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+        }
+
+        function loop() {
+            // Check Auto Advance
+            if (autoAdvanceEnabled) {
+                if (Date.now() - lastAutoTime > params.autoInterval.val * 1000) {
+                    randomizeWithTransition();
+                    lastAutoTime = Date.now(); // Reset timer
+                }
+            }
+
+            render();
+            animationFrameId = requestAnimationFrame(loop);
+        }
+
+        // --- Interactions ---
+
+        const menuBtn = document.getElementById('menu-btn');
+        const panel = document.getElementById('settings-panel');
+        const overlay = document.getElementById('fade-overlay');
+
+        let isMenuOpen = false;
+
+        function toggleMenu(forceClose = false) {
+            if (forceClose) {
+                isMenuOpen = false;
+            } else {
+                isMenuOpen = !isMenuOpen;
+            }
+            
+            if (isMenuOpen) {
+                menuBtn.classList.add('open');
+                panel.classList.add('open');
+            } else {
+                menuBtn.classList.remove('open');
+                panel.classList.remove('open');
+            }
+        }
+
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleMenu();
+        });
+
+        // Click Logic
+        document.addEventListener('click', (e) => {
+            const isClickInsidePanel = panel.contains(e.target);
+            const isClickOnBtn = menuBtn.contains(e.target);
+
+            if (isMenuOpen) {
+                if (!isClickInsidePanel && !isClickOnBtn) {
+                    toggleMenu(true); // Close menu
+                }
+            } else {
+                // If menu is closed, clicking background randomizes
+                randomizeWithTransition();
+            }
+        });
+        
+        // Escape key
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && isMenuOpen) {
+                toggleMenu(true);
+            }
+        });
+
+        // Stop propagation inside panel
+        panel.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+
+        // --- Randomization ---
+
+        function randFloat(min, max) {
+            return Math.random() * (max - min) + min;
+        }
+
+        function randomizeSettings() {
+            // Position stays manually controlled mostly, or we could randomize it slightly
+            // We'll reset position to near center for better UX on random
+            params.posX.val = randFloat(-0.2, 0.2);
+            params.posY.val = randFloat(-0.2, 0.2);
+
+            params.iter.val = Math.floor(randFloat(10, 40));
+            params.angFreq.val = Math.floor(randFloat(2, 20)); 
+            
+            params.waveFreq.val = randFloat(5, 50);
+            params.speedBase.val = randFloat(-4, 4);
+            params.speedInc.val = randFloat(-0.5, 0.5);
+            params.amp.val = randFloat(0.01, 0.2);
+            params.thick.val = randFloat(0.0003, 0.002);
+            params.radius.val = randFloat(0.1, 1.0);
+            params.spacing.val = randFloat(0.005, 0.05);
+
+            params.colR.val = randFloat(0, 3);
+            params.colG.val = randFloat(0, 3);
+            params.colB.val = randFloat(0, 3);
+            
+            params.colRInc.val = randFloat(-0.2, 0.2);
+            params.colGInc.val = randFloat(-0.2, 0.2);
+            params.colBInc.val = randFloat(-0.2, 0.2);
+
+            // Update UI
+            Object.keys(params).forEach(key => {
+                const p = params[key];
+                if(p.el) {
+                    p.el.value = p.val;
+                    const disp = Number.isInteger(p.step) ? p.val : p.val.toFixed(3);
+                    document.getElementById(`val-${key}`).innerText = disp;
+                }
+            });
+            
+            lastAutoTime = Date.now(); // Reset auto timer on random
+        }
+
+        function randomizeWithTransition() {
+            overlay.style.opacity = '1';
+            setTimeout(() => {
+                randomizeSettings();
+                requestAnimationFrame(() => {
+                    setTimeout(() => {
+                         overlay.style.opacity = '0';
+                    }, 250);
+                });
+            }, 300);
+        }
+
+        document.getElementById('btn-randomize').addEventListener('click', randomizeWithTransition);
+
+        // --- Export 4K ---
+
+        function showToast() {
+            const t = document.getElementById('toast');
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 3000);
+        }
+
+        document.getElementById('btn-export').addEventListener('click', () => {
+            cancelAnimationFrame(animationFrameId);
+            const originalW = window.innerWidth;
+            const originalH = window.innerHeight;
+
+            render(3840, 2160);
+
+            try {
+                const dataUrl = canvas.toDataURL('image/png');
+                const link = document.createElement('a');
+                link.download = `neon_waves_${Date.now()}.png`;
+                link.href = dataUrl;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                showToast();
+            } catch (e) {
+                console.error("Export failed", e);
+                alert("Export failed. Browser limit?");
+            }
+
+            canvas.width = originalW;
+            canvas.height = originalH;
+            gl.viewport(0, 0, originalW, originalH);
+            loop();
+        });
+
+        window.addEventListener('resize', () => {});
+
+        // --- Init ---
+        // Start random!
+        randomizeSettings();
+        loop();
+
+    </script>
+</body>
+</html>
